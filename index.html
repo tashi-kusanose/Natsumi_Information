@@ -161,7 +161,6 @@
   <script>
     const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzIEbj4YsC7VlwZkR6Te28MkBV58k4-6KjZFAhXI8ZI4JnRYN16X_nwuUmLlhV5_MDgqg/exec";
 
-    // ★追加：グローバル変数として現在のパスワードを保持（初期値は0000）
     let currentAdminPassword = "0000";
 
     window.onload = function() {
@@ -174,10 +173,19 @@
             document.getElementById('main-nav').innerHTML = data.navHtml;
             document.getElementById('main-content').innerHTML = data.mainHtml;
             
-            // ★追加：クラウドからパスワードを読み込む（保存されていなければ0000）
             if (data.adminPassword) {
               currentAdminPassword = data.adminPassword;
             }
+
+            // ★追加処理：過去の項目データに「並び替えボタン(⬆️⬇️)」がない場合、自動的に補完する
+            document.querySelectorAll('.sub-item').forEach(item => {
+              const actionsDiv = item.querySelector('.item-actions');
+              if (actionsDiv && !actionsDiv.querySelector('.move-btn')) {
+                const itemId = item.id;
+                // 並び替えボタンを先頭に挿入
+                actionsDiv.insertAdjacentHTML('afterbegin', `<button class="move-btn" onclick="moveItemUp('${itemId}')" title="上に移動">⬆️</button><button class="move-btn" onclick="moveItemDown('${itemId}')" title="下に移動">⬇️</button>`);
+              }
+            });
 
             const firstNavBtn = document.querySelector('.nav-btn');
             if (firstNavBtn) {
@@ -227,7 +235,6 @@
       document.getElementById('loading-text').innerText = "クラウドに保存中...";
       loading.style.display = 'flex';
       
-      // ★追加：保存するデータにパスワードを含める
       const siteData = {
         pageTitle: document.getElementById('display-title').innerText,
         navHtml: document.getElementById('main-nav').innerHTML,
@@ -289,7 +296,6 @@
     function toggleEditMode() {
       if (!isEditMode) {
         const pw = prompt('パスワードを入力してください:');
-        // ★修正：0000固定ではなく、変数に入っている現在のパスワードと照合する
         if (pw === currentAdminPassword) {
           isEditMode = true;
           document.body.classList.add('edit-mode');
@@ -409,11 +415,8 @@
       closeModal('contentModal');
     }
 
-    // --- メニュー構成・サイト設定の編集ロジック ---
     function openSettingsModal() {
       document.getElementById('input-title').value = document.getElementById('display-title').innerText;
-      
-      // ★追加：設定画面を開くとき、現在のパスワードを入力欄にセットする
       document.getElementById('input-password').value = currentAdminPassword;
 
       const menuListContainer = document.getElementById('dynamic-menu-list');
@@ -450,8 +453,6 @@
 
     function saveSettings() {
       const newTitle = document.getElementById('input-title').value;
-      
-      // ★追加：入力された新しいパスワードを変数にセットする
       const newPassword = document.getElementById('input-password').value;
       if(newPassword.trim() !== '') {
         currentAdminPassword = newPassword.trim();
