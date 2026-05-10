@@ -26,12 +26,14 @@
     .item-content p { margin: 5px 0; } 
     .item-content img, .accordion-content img { max-width: 100%; height: auto; border-radius: 8px; display: block; margin: 10px auto; }
 
+    /* 項目全体のアコーディオン設定 */
     .sub-item.accordion .item-title { cursor: pointer; padding-right: 30px; position: relative; }
     .sub-item.accordion .item-title::after { content: '▼'; position: absolute; right: 5px; top: 50%; transform: translateY(-50%); font-size: 0.9rem; color: #D35400; transition: transform 0.3s; }
     .sub-item.accordion.open .item-title::after { transform: translateY(-50%) rotate(180deg); }
     .sub-item.accordion .item-content { display: none; }
     .sub-item.accordion.open .item-content { display: block; margin-top: 10px; }
 
+    /* 本文中のアコーディオンデザイン */
     details.inline-accordion { border: 1px solid #FFCC80; border-radius: 4px; margin: 5px 0; background: #fff; }
     details.inline-accordion summary { padding: 10px 15px; font-weight: bold; cursor: pointer; background: #FFF3E0; border-radius: 4px; outline: none; list-style-position: inside; color: #D35400; }
     details.inline-accordion summary:hover { background: #FFE0B2; }
@@ -39,9 +41,11 @@
     details.inline-accordion .accordion-content p:first-child { margin-top: 0; }
     details.inline-accordion .accordion-content p:last-child { margin-bottom: 0; }
     
+    /* ★追加：入れ子になった時のアコーディオンデザイン（少し優しくする） */
     .accordion-content details.inline-accordion { margin-top: 10px; border-color: #FFE0B2; }
     .accordion-content details.inline-accordion summary { background: #FFF9E6; font-size: 0.9rem; padding: 8px 12px; }
 
+    /* 編集モード関連 */
     .mode-toggle { background: transparent; color: #D35400; border: none; font-size: 1.5rem; cursor: pointer; padding: 5px; border-radius: 50%; transition: transform 0.3s, background 0.3s; line-height: 1; }
     .mode-toggle:hover { transform: rotate(45deg); background: #FFF3E0; }
     body.edit-mode .mode-toggle { background: #FFE0B2; }
@@ -63,6 +67,7 @@
     body.edit-mode .item-actions { display: flex; }
     body.edit-mode .add-item-btn { display: block; }
 
+    /* モーダル＆ローディング */
     .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(93, 64, 55, 0.7); z-index: 1000; justify-content: center; align-items: center; }
     .modal-overlay.active { display: flex; }
     .modal-content { background: #fff; padding: 20px; border-radius: 8px; width: 90%; max-width: 600px; max-height: 80vh; overflow-y: auto; position: relative; }
@@ -116,18 +121,22 @@
     <div class="modal-content">
       <span class="close-modal" onclick="closeModal('contentModal')">&times;</span>
       <h3>項目の編集</h3>
+      
       <div class="modal-input-group">
         <label>項目の見出し（タイトル）</label>
         <input type="text" id="item-title-input" placeholder="例：プロフィール、TikTok など">
       </div>
+
       <div class="modal-input-group" style="display: flex; align-items: center; gap: 8px; margin-top: -5px; margin-bottom: 15px;">
         <input type="checkbox" id="item-accordion-checkbox" style="width: 20px; height: 20px; cursor: pointer;">
         <label for="item-accordion-checkbox" style="margin: 0; font-weight: normal; cursor: pointer; padding-top: 2px;">この項目全体をアコーディオン(開閉式)にする</label>
       </div>
+
       <div class="modal-input-group">
         <label>内容</label>
         <div id="editor" style="height: 250px; border: 1px solid #ccc; background: #fff;"></div>
       </div>
+      
       <button class="save-btn" onclick="saveContent()">保存する</button>
     </div>
   </div>
@@ -137,10 +146,12 @@
       <span class="close-modal" onclick="closeModal('settingsModal')">&times;</span>
       <h3>サイト設定の編集</h3>
       <div class="settings-group"><label>ページタイトル</label><input type="text" id="input-title"></div>
+      
       <div class="settings-group">
         <label>編集モード用パスワード</label>
         <input type="text" id="input-password" placeholder="現在のパスワード">
       </div>
+
       <div class="settings-group">
         <label>メニュー構成</label>
         <div id="dynamic-menu-list"></div>
@@ -153,81 +164,68 @@
   <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
   <script>
     const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzIEbj4YsC7VlwZkR6Te28MkBV58k4-6KjZFAhXI8ZI4JnRYN16X_nwuUmLlhV5_MDgqg/exec";
+
     let currentAdminPassword = "0000";
 
-    // 画面にデータを反映する関数（キャッシュとGAS取得の両方で使うため分離）
-    function renderData(data) {
-      document.getElementById('display-title').innerText = data.pageTitle;
-      document.getElementById('page-title-meta').innerText = data.pageTitle;
-      document.getElementById('main-nav').innerHTML = data.navHtml;
-      document.getElementById('main-content').innerHTML = data.mainHtml;
-      
-      if (data.adminPassword) currentAdminPassword = data.adminPassword;
-
-      document.querySelectorAll('.sub-item').forEach(item => {
-        const actionsDiv = item.querySelector('.item-actions');
-        if (actionsDiv && !actionsDiv.querySelector('.move-btn')) {
-          const itemId = item.id;
-          actionsDiv.insertAdjacentHTML('afterbegin', `<button class="move-btn" onclick="moveItemUp('${itemId}')" title="上に移動">⬆️</button><button class="move-btn" onclick="moveItemDown('${itemId}')" title="下に移動">⬇️</button>`);
-        }
-      });
-
-      // 現在開いているタブがあればそれを維持し、なければ一番左を開く
-      const activeNav = document.querySelector('.nav-btn.active');
-      if (activeNav) {
-        showSection(activeNav.getAttribute('data-section-id'));
-      } else {
-        const firstNavBtn = document.querySelector('.nav-btn');
-        if (firstNavBtn) showSection(firstNavBtn.getAttribute('data-section-id'));
-      }
-    }
-
     window.onload = function() {
-      // ★爆速化：まずはローカル（スマホ内）に保存されたキャッシュを探す
-      const cachedDataStr = localStorage.getItem('ichinoseSiteCache');
-      if (cachedDataStr) {
-        try {
-          const cachedData = JSON.parse(cachedDataStr);
-          renderData(cachedData);
-          document.getElementById('loading-screen').style.display = 'none'; // キャッシュがあれば一瞬でローディングを消す
-        } catch(e) {
-          console.error('キャッシュ読み込みエラー', e);
-        }
-      }
-
-      // ★裏側でGASから最新データを取得しにいく
       fetch(GAS_WEB_APP_URL)
         .then(response => response.json())
         .then(data => {
           if (!data.isNew) {
-            const newDataStr = JSON.stringify(data);
-            // キャッシュがない、または内容が更新されている場合のみデータを書き換える
-            if (cachedDataStr !== newDataStr) {
-              localStorage.setItem('ichinoseSiteCache', newDataStr); // 最新版をキャッシュに保存
-              // ※もし管理者が編集中であれば、勝手に画面が変わるのを防ぐ
-              if (!isEditMode) {
-                renderData(data);
-              }
+            document.getElementById('display-title').innerText = data.pageTitle;
+            document.getElementById('page-title-meta').innerText = data.pageTitle;
+            document.getElementById('main-nav').innerHTML = data.navHtml;
+            document.getElementById('main-content').innerHTML = data.mainHtml;
+            
+            if (data.adminPassword) {
+              currentAdminPassword = data.adminPassword;
             }
-          } else if (!cachedDataStr) {
+
+            document.querySelectorAll('.sub-item').forEach(item => {
+              const actionsDiv = item.querySelector('.item-actions');
+              if (actionsDiv && !actionsDiv.querySelector('.move-btn')) {
+                const itemId = item.id;
+                actionsDiv.insertAdjacentHTML('afterbegin', `<button class="move-btn" onclick="moveItemUp('${itemId}')" title="上に移動">⬆️</button><button class="move-btn" onclick="moveItemDown('${itemId}')" title="下に移動">⬇️</button>`);
+              }
+            });
+
+            const firstNavBtn = document.querySelector('.nav-btn');
+            if (firstNavBtn) {
+              showSection(firstNavBtn.getAttribute('data-section-id'));
+            }
+          } else {
             forceStart();
           }
-          // まだローディング画面が出ていれば（初回アクセス時など）消す
           document.getElementById('loading-screen').style.display = 'none';
         })
         .catch(error => {
           console.error(error);
-          if (!cachedDataStr) { // キャッシュすら無い初めてのアクセスでエラーになった場合
-            document.getElementById('spinner-icon').style.display = 'none';
-            document.getElementById('loading-text').innerHTML = "通信エラーが発生しました。<br>GASの設定を確認するか、スキップしてください。";
-            document.getElementById('error-actions').style.display = 'block';
-          }
+          document.getElementById('spinner-icon').style.display = 'none';
+          document.getElementById('loading-text').innerHTML = "通信エラーが発生しました。<br>GASの設定を確認するか、スキップしてください。";
+          document.getElementById('error-actions').style.display = 'block';
         });
     };
 
     function forceStart() {
       document.getElementById('main-nav').innerHTML = '<button class="nav-btn active" data-section-id="top" onclick="showSection(\'top\')">トップ</button>';
-      const initContent = `<section id="top" class="section active"><div class="sub-items-container"><div class="sub-item" id="item-init" data-raw-content="%3Cp%3E%E3%81%93%E3%81%93%E3%81%AB%E5%86%85%E5%AE%B9%E3%82%92%E5%85%A5%E5%8A%9B%E3%81%97%E3%81%A6%E3%81%8F%E3%81%A0%E3%81%95%E3%81%84%E3%80%82%3C%2Fp%3E"><div class="item-actions"><button class="move-btn" onclick="moveItemUp('item-init')" title="上に移動">⬆️</button><button class="move-btn" onclick="moveItemDown('item-init')" title="下に移動">⬇️</button><button onclick="editItem('item-init')">✏️ 編集</button><button class="delete-btn" onclick="deleteItem('item-init')">🗑️ 削除</button></div><h2 class="item-title">最初の項目</h2><div class="item-content"><p>ここに内容を入力してください。</p></div></div></div><button class="add-item-btn" onclick="addNewItem('top')">＋ 新しい項目を追加</button></section>`;
+      
+      const initContent = `
+        <section id="top" class="section active">
+          <div class="sub-items-container">
+            <div class="sub-item" id="item-init" data-raw-content="%3Cp%3E%E3%81%93%E3%81%93%E3%81%AB%E5%86%85%E5%AE%B9%E3%82%92%E5%85%A5%E5%8A%9B%E3%81%97%E3%81%A6%E3%81%8F%E3%81%A0%E3%81%95%E3%81%84%E3%80%82%3C%2Fp%3E">
+              <div class="item-actions">
+                <button class="move-btn" onclick="moveItemUp('item-init')" title="上に移動">⬆️</button>
+                <button class="move-btn" onclick="moveItemDown('item-init')" title="下に移動">⬇️</button>
+                <button onclick="editItem('item-init')">✏️ 編集</button>
+                <button class="delete-btn" onclick="deleteItem('item-init')">🗑️ 削除</button>
+              </div>
+              <h2 class="item-title">最初の項目</h2>
+              <div class="item-content"><p>ここに内容を入力してください。</p></div>
+            </div>
+          </div>
+          <button class="add-item-btn" onclick="addNewItem('top')">＋ 新しい項目を追加</button>
+        </section>`;
+      
       document.getElementById('main-content').innerHTML = initContent;
       document.getElementById('loading-screen').style.display = 'none';
     }
@@ -255,8 +253,6 @@
       .then(data => {
         loading.style.display = 'none';
         if (data.result === 'success') {
-          // 保存成功したら、キャッシュも最新のものに上書きしておく
-          localStorage.setItem('ichinoseSiteCache', JSON.stringify(siteData));
           alert('サイトのデータをクラウドに公開(保存)しました！');
         } else {
           alert('保存に失敗しました。');
@@ -297,9 +293,12 @@
                   reader.onload = (e) => {
                     const base64Image = e.target.result;
                     const linkUrl = prompt('画像にリンクを貼りますか？\n（リンク先のURLを入力してください。リンクなしの場合は空欄のまま「OK」を押してください）', '');
+
                     const range = this.quill.getSelection(true);
                     const index = range ? range.index : 0;
+
                     this.quill.insertEmbed(index, 'image', base64Image);
+
                     if (linkUrl && linkUrl.trim() !== '') {
                       this.quill.setSelection(index, 1);
                       this.quill.format('link', linkUrl.trim());
@@ -350,16 +349,21 @@
       }
     }
 
+    // ★改良：一番内側のアコーディオンから順番にHTMLタグに変換し、無限に入れ子にできるようにする処理
     function parseAccordionToHTML(rawHtml) {
       let parsedHtml = rawHtml;
+      // 内側のアコーディオン（中に他のアコーディオンを含まないもの）を探す正規表現
       const regex = /(?:<p>\s*)?【アコーディオン:([^】]+)】(?:\s*<\/p>)?((?:(?!【アコーディオン:|【\/アコーディオン】)[\s\S])*?)(?:<p>\s*)?【\/アコーディオン】(?:\s*<\/p>)?/g;
+      
       let previousHtml;
+      // 変換できる【アコーディオン】が無くなるまで繰り返す（入れ子対応）
       do {
         previousHtml = parsedHtml;
         parsedHtml = parsedHtml.replace(regex, function(match, title, content) {
           return `<details class="inline-accordion"><summary>${title}</summary><div class="accordion-content">${content}</div></details>`;
         });
       } while (parsedHtml !== previousHtml);
+      
       return parsedHtml;
     }
 
@@ -372,10 +376,13 @@
       const itemEl = document.getElementById(itemId);
       const title = itemEl.querySelector('.item-title').innerText;
       const rawContent = decodeURIComponent(itemEl.getAttribute('data-raw-content') || '');
+      
       const isCardAccordion = itemEl.classList.contains('accordion');
+      
       document.getElementById('item-title-input').value = title.replace('▼', '').trim(); 
       quill.root.innerHTML = rawContent;
       document.getElementById('item-accordion-checkbox').checked = isCardAccordion;
+      
       document.getElementById('contentModal').classList.add('active');
     }
 
@@ -426,12 +433,26 @@
           itemEl.classList.remove('accordion', 'open');
           titleEl.removeAttribute('onclick');
         }
+
       } else if (currentEditingSectionId) {
         const newItemId = 'item-' + Date.now();
         const sectionContainer = document.querySelector(`#${currentEditingSectionId} .sub-items-container`);
+        
         const accordionClass = isCardAccordion ? 'accordion' : '';
         const onclickAttr = isCardAccordion ? `onclick="toggleAccordion('${newItemId}')"` : '';
-        const html = `<div class="sub-item ${accordionClass}" id="${newItemId}" data-raw-content="${encodeURIComponent(rawContent)}"><div class="item-actions"><button class="move-btn" onclick="moveItemUp('${newItemId}')" title="上に移動">⬆️</button><button class="move-btn" onclick="moveItemDown('${newItemId}')" title="下に移動">⬇️</button><button onclick="editItem('${newItemId}')">✏️ 編集</button><button class="delete-btn" onclick="deleteItem('${newItemId}')">🗑️ 削除</button></div><h2 class="item-title" ${onclickAttr}>${title}</h2><div class="item-content">${displayContent}</div></div>`;
+
+        const html = `
+          <div class="sub-item ${accordionClass}" id="${newItemId}" data-raw-content="${encodeURIComponent(rawContent)}">
+            <div class="item-actions">
+              <button class="move-btn" onclick="moveItemUp('${newItemId}')" title="上に移動">⬆️</button>
+              <button class="move-btn" onclick="moveItemDown('${newItemId}')" title="下に移動">⬇️</button>
+              <button onclick="editItem('${newItemId}')">✏️ 編集</button>
+              <button class="delete-btn" onclick="deleteItem('${newItemId}')">🗑️ 削除</button>
+            </div>
+            <h2 class="item-title" ${onclickAttr}>${title}</h2>
+            <div class="item-content">${displayContent}</div>
+          </div>
+        `;
         sectionContainer.insertAdjacentHTML('beforeend', html);
       }
       closeModal('contentModal');
@@ -440,6 +461,7 @@
     function openSettingsModal() {
       document.getElementById('input-title').value = document.getElementById('display-title').innerText;
       document.getElementById('input-password').value = currentAdminPassword;
+
       const menuListContainer = document.getElementById('dynamic-menu-list');
       menuListContainer.innerHTML = ''; 
       document.querySelectorAll('.nav-btn').forEach(btn => { addMenuInputRow(btn.getAttribute('data-section-id'), btn.innerText); });
@@ -448,23 +470,36 @@
 
     function addMenuInputRow(id, name) {
       const container = document.getElementById('dynamic-menu-list');
-      container.insertAdjacentHTML('beforeend', `<div class="menu-input-row"><input type="hidden" class="menu-id" value="${id}"><input type="text" class="menu-name" value="${name}" placeholder="メニュー名"><button class="move-menu-btn" onclick="moveMenuUp(this)" title="上に移動">⬆️</button><button class="move-menu-btn" onclick="moveMenuDown(this)" title="下に移動">⬇️</button><button class="delete-menu-btn" onclick="this.parentElement.remove()">削除</button></div>`);
+      container.insertAdjacentHTML('beforeend', `
+        <div class="menu-input-row">
+          <input type="hidden" class="menu-id" value="${id}">
+          <input type="text" class="menu-name" value="${name}" placeholder="メニュー名">
+          <button class="move-menu-btn" onclick="moveMenuUp(this)" title="上に移動">⬆️</button>
+          <button class="move-menu-btn" onclick="moveMenuDown(this)" title="下に移動">⬇️</button>
+          <button class="delete-menu-btn" onclick="this.parentElement.remove()">削除</button>
+        </div>`);
     }
 
     function moveMenuUp(btn) {
       const row = btn.closest('.menu-input-row');
-      if (row.previousElementSibling) row.parentNode.insertBefore(row, row.previousElementSibling);
+      if (row.previousElementSibling) {
+        row.parentNode.insertBefore(row, row.previousElementSibling);
+      }
     }
 
     function moveMenuDown(btn) {
       const row = btn.closest('.menu-input-row');
-      if (row.nextElementSibling) row.parentNode.insertBefore(row.nextElementSibling, row);
+      if (row.nextElementSibling) {
+        row.parentNode.insertBefore(row.nextElementSibling, row);
+      }
     }
 
     function saveSettings() {
       const newTitle = document.getElementById('input-title').value;
       const newPassword = document.getElementById('input-password').value;
-      if(newPassword.trim() !== '') currentAdminPassword = newPassword.trim();
+      if(newPassword.trim() !== '') {
+        currentAdminPassword = newPassword.trim();
+      }
 
       document.getElementById('display-title').innerText = newTitle;
       document.getElementById('page-title-meta').innerText = newTitle;
@@ -482,6 +517,7 @@
       });
 
       document.querySelectorAll('.section').forEach(sec => { if (!keepSectionIds.includes(sec.id)) sec.remove(); });
+      
       if (keepSectionIds.length > 0) showSection(keepSectionIds[0]);
       closeModal('settingsModal');
     }
