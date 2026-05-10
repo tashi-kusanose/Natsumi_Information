@@ -40,6 +40,10 @@
     details.inline-accordion .accordion-content { padding: 15px; border-top: 1px solid #FFCC80; }
     details.inline-accordion .accordion-content p:first-child { margin-top: 0; }
     details.inline-accordion .accordion-content p:last-child { margin-bottom: 0; }
+    
+    /* ★追加：入れ子になった時のアコーディオンデザイン（少し優しくする） */
+    .accordion-content details.inline-accordion { margin-top: 10px; border-color: #FFE0B2; }
+    .accordion-content details.inline-accordion summary { background: #FFF9E6; font-size: 0.9rem; padding: 8px 12px; }
 
     /* 編集モード関連 */
     .mode-toggle { background: transparent; color: #D35400; border: none; font-size: 1.5rem; cursor: pointer; padding: 5px; border-radius: 50%; transition: transform 0.3s, background 0.3s; line-height: 1; }
@@ -264,7 +268,6 @@
     const icons = Quill.import('ui/icons');
     icons['accordion'] = '<svg viewBox="0 0 18 18"><polygon class="ql-fill" points="4,6 14,6 9,13"></polygon></svg>';
     
-    // エディタの初期化
     const quill = new Quill('#editor', {
       theme: 'snow',
       modules: {
@@ -277,7 +280,6 @@
               this.quill.insertText(position, '\n【アコーディオン:タイトルを入力】\nここに隠す内容を入力\n【/アコーディオン】\n');
               this.quill.setSelection(position + 15, 6);
             },
-            // ★追加：画像挿入時にリンクも聞く特別プログラム
             'image': function() {
               const input = document.createElement('input');
               input.setAttribute('type', 'file');
@@ -290,22 +292,17 @@
                   const reader = new FileReader();
                   reader.onload = (e) => {
                     const base64Image = e.target.result;
-                    // 画像を選択した直後に、ポップアップでリンク先URLを聞く
                     const linkUrl = prompt('画像にリンクを貼りますか？\n（リンク先のURLを入力してください。リンクなしの場合は空欄のまま「OK」を押してください）', '');
 
                     const range = this.quill.getSelection(true);
                     const index = range ? range.index : 0;
 
-                    // まず画像をエディタに挿入
                     this.quill.insertEmbed(index, 'image', base64Image);
 
-                    // もしリンクURLが入力されていれば、その画像にリンクを設定する
                     if (linkUrl && linkUrl.trim() !== '') {
                       this.quill.setSelection(index, 1);
                       this.quill.format('link', linkUrl.trim());
                     }
-                    
-                    // カーソルを画像の次に移動させて入力を続けやすくする
                     this.quill.setSelection(index + 1);
                   };
                   reader.readAsDataURL(file);
@@ -352,11 +349,22 @@
       }
     }
 
+    // ★改良：一番内側のアコーディオンから順番にHTMLタグに変換し、無限に入れ子にできるようにする処理
     function parseAccordionToHTML(rawHtml) {
-      const regex = /(?:<p>)?【アコーディオン:(.*?)】(?:<\/p>)?([\s\S]*?)(?:<p>)?【\/アコーディオン】(?:<\/p>)?/g;
-      return rawHtml.replace(regex, function(match, title, content) {
-        return `<details class="inline-accordion"><summary>${title}</summary><div class="accordion-content">${content}</div></details>`;
-      });
+      let parsedHtml = rawHtml;
+      // 内側のアコーディオン（中に他のアコーディオンを含まないもの）を探す正規表現
+      const regex = /(?:<p>\s*)?【アコーディオン:([^】]+)】(?:\s*<\/p>)?((?:(?!【アコーディオン:|【\/アコーディオン】)[\s\S])*?)(?:<p>\s*)?【\/アコーディオン】(?:\s*<\/p>)?/g;
+      
+      let previousHtml;
+      // 変換できる【アコーディオン】が無くなるまで繰り返す（入れ子対応）
+      do {
+        previousHtml = parsedHtml;
+        parsedHtml = parsedHtml.replace(regex, function(match, title, content) {
+          return `<details class="inline-accordion"><summary>${title}</summary><div class="accordion-content">${content}</div></details>`;
+        });
+      } while (parsedHtml !== previousHtml);
+      
+      return parsedHtml;
     }
 
     let currentEditingItemId = null;
