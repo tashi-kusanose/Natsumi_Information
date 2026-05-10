@@ -37,7 +37,6 @@
     body.edit-mode .mode-toggle { background: #FFE0B2; }
     .header-edit-btn { background: #ffa502; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; display: none; }
     
-    /* クラウド保存ボタン */
     .save-cloud-btn { display: none; background: #2ed573; color: white; border: none; padding: 5px 15px; border-radius: 20px; cursor: pointer; font-weight: bold; font-size: 0.9rem; margin-left: 10px; animation: pulse 2s infinite; }
     @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(46, 213, 115, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(46, 213, 115, 0); } 100% { box-shadow: 0 0 0 0 rgba(46, 213, 115, 0); } }
 
@@ -68,16 +67,21 @@
     .delete-menu-btn { background: #ff4757; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; }
     .add-menu-btn { background: #FFB74D; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; margin-top: 5px; }
 
-    #loading-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #FFFDF5; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #E67E22; font-weight: bold; font-size: 1.2rem; }
+    #loading-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #FFFDF5; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #E67E22; font-weight: bold; font-size: 1.2rem; text-align: center; }
     .spinner { border: 4px solid #FFE082; border-top: 4px solid #FFB74D; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 15px; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .skip-btn { margin-top: 20px; padding: 10px 20px; background: #FFB74D; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
   </style>
 </head>
 <body>
 
   <div id="loading-screen">
-    <div class="spinner"></div>
+    <div class="spinner" id="spinner-icon"></div>
     <div id="loading-text">データを読み込み中...</div>
+    <div id="error-actions" style="display: none;">
+      <button class="skip-btn" onclick="forceStart()">スキップして初期画面から始める</button>
+      <p style="font-size: 0.8rem; color: #666; margin-top: 10px;">※ローカルファイルのセキュリティ制限により通信できない場合があります。</p>
+    </div>
   </div>
 
   <div class="container">
@@ -90,11 +94,8 @@
       <button class="mode-toggle" onclick="toggleEditMode()" id="modeBtn" title="管理メニュー">⚙️</button>
     </header>
 
-    <nav id="main-nav">
-      </nav>
-
-    <main id="main-content">
-      </main>
+    <nav id="main-nav"></nav>
+    <main id="main-content"></main>
   </div>
 
   <div class="modal-overlay" id="contentModal">
@@ -129,43 +130,41 @@
 
   <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
   <script>
-    // ==========================================
-    // いただいたGASのURLを組み込みました
-    // ==========================================
     const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzIEbj4YsC7VlwZkR6Te28MkBV58k4-6KjZFAhXI8ZI4JnRYN16X_nwuUmLlhV5_MDgqg/exec";
 
-    // --- ページ読み込み時にGASからデータを取得 ---
     window.onload = function() {
-      if (GAS_WEB_APP_URL.includes("【")) {
-        document.getElementById('loading-text').innerText = "GASのURLが設定されていません。";
-        return;
-      }
-      
       fetch(GAS_WEB_APP_URL)
         .then(response => response.json())
         .then(data => {
           if (!data.isNew) {
-            // 保存されていたHTMLデータを画面に復元
             document.getElementById('display-title').innerText = data.pageTitle;
             document.getElementById('page-title-meta').innerText = data.pageTitle;
             document.getElementById('main-nav').innerHTML = data.navHtml;
             document.getElementById('main-content').innerHTML = data.mainHtml;
           } else {
-            // 初回起動時のダミーデータ生成
-            document.getElementById('main-nav').innerHTML = '<button class="nav-btn active" data-section-id="top" onclick="showSection(\'top\')">トップ</button>';
-            document.getElementById('main-content').innerHTML = '<section id="top" class="section active"><div class="sub-items-container"></div><button class="add-item-btn" onclick="addNewItem(\'top\')">＋ 新しい項目を追加</button></section>';
+            forceStart();
           }
           document.getElementById('loading-screen').style.display = 'none';
         })
         .catch(error => {
           console.error(error);
-          document.getElementById('loading-text').innerText = "通信エラーが発生しました。";
+          document.getElementById('spinner-icon').style.display = 'none';
+          document.getElementById('loading-text').innerHTML = "通信エラーが発生しました。<br>GASの設定を確認するか、スキップしてください。";
+          document.getElementById('error-actions').style.display = 'block';
         });
     };
 
-    // --- 編集内容をGAS(Googleドライブ)に保存 ---
+    // ★追加: エラー時に強制的に初期データで画面を開く関数
+    function forceStart() {
+      document.getElementById('main-nav').innerHTML = '<button class="nav-btn active" data-section-id="top" onclick="showSection(\'top\')">トップ</button>';
+      document.getElementById('main-content').innerHTML = '<section id="top" class="section active"><div class="sub-items-container"></div><button class="add-item-btn" onclick="addNewItem(\'top\')">＋ 新しい項目を追加</button></section>';
+      document.getElementById('loading-screen').style.display = 'none';
+    }
+
     function saveToCloud() {
       const loading = document.getElementById('loading-screen');
+      document.getElementById('spinner-icon').style.display = 'block';
+      document.getElementById('error-actions').style.display = 'none';
       document.getElementById('loading-text').innerText = "クラウドに保存中...";
       loading.style.display = 'flex';
       
@@ -192,7 +191,7 @@
       .catch(error => {
         console.error(error);
         loading.style.display = 'none';
-        alert('通信エラーが発生しました。');
+        alert('通信エラーが発生しました。ブラウザのセキュリティ制限が原因の可能性があります。');
       });
     }
 
