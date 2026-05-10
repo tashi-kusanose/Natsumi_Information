@@ -177,12 +177,10 @@
               currentAdminPassword = data.adminPassword;
             }
 
-            // ★追加処理：過去の項目データに「並び替えボタン(⬆️⬇️)」がない場合、自動的に補完する
             document.querySelectorAll('.sub-item').forEach(item => {
               const actionsDiv = item.querySelector('.item-actions');
               if (actionsDiv && !actionsDiv.querySelector('.move-btn')) {
                 const itemId = item.id;
-                // 並び替えボタンを先頭に挿入
                 actionsDiv.insertAdjacentHTML('afterbegin', `<button class="move-btn" onclick="moveItemUp('${itemId}')" title="上に移動">⬆️</button><button class="move-btn" onclick="moveItemDown('${itemId}')" title="下に移動">⬇️</button>`);
               }
             });
@@ -265,6 +263,8 @@
 
     const icons = Quill.import('ui/icons');
     icons['accordion'] = '<svg viewBox="0 0 18 18"><polygon class="ql-fill" points="4,6 14,6 9,13"></polygon></svg>';
+    
+    // エディタの初期化
     const quill = new Quill('#editor', {
       theme: 'snow',
       modules: {
@@ -276,6 +276,41 @@
               const position = range ? range.index : 0;
               this.quill.insertText(position, '\n【アコーディオン:タイトルを入力】\nここに隠す内容を入力\n【/アコーディオン】\n');
               this.quill.setSelection(position + 15, 6);
+            },
+            // ★追加：画像挿入時にリンクも聞く特別プログラム
+            'image': function() {
+              const input = document.createElement('input');
+              input.setAttribute('type', 'file');
+              input.setAttribute('accept', 'image/*');
+              input.click();
+
+              input.onchange = () => {
+                const file = input.files[0];
+                if (file) {
+                  const reader = new FileReader();
+                  reader.onload = (e) => {
+                    const base64Image = e.target.result;
+                    // 画像を選択した直後に、ポップアップでリンク先URLを聞く
+                    const linkUrl = prompt('画像にリンクを貼りますか？\n（リンク先のURLを入力してください。リンクなしの場合は空欄のまま「OK」を押してください）', '');
+
+                    const range = this.quill.getSelection(true);
+                    const index = range ? range.index : 0;
+
+                    // まず画像をエディタに挿入
+                    this.quill.insertEmbed(index, 'image', base64Image);
+
+                    // もしリンクURLが入力されていれば、その画像にリンクを設定する
+                    if (linkUrl && linkUrl.trim() !== '') {
+                      this.quill.setSelection(index, 1);
+                      this.quill.format('link', linkUrl.trim());
+                    }
+                    
+                    // カーソルを画像の次に移動させて入力を続けやすくする
+                    this.quill.setSelection(index + 1);
+                  };
+                  reader.readAsDataURL(file);
+                }
+              };
             }
           }
         }
