@@ -21,10 +21,19 @@
     .section.active { display: block; }
     .sub-item { border: 1px solid #FFE082; border-radius: 8px; padding: 15px; margin-bottom: 15px; background: #FFFAED; position: relative; }
     .item-title { margin-top: 0; margin-bottom: 10px; font-size: 1.2rem; border-bottom: 2px dashed #FFCC80; padding-bottom: 5px; color: #D35400; }
+    
+    /* コンテンツ内のテキスト余白を調整 */
     .item-content { font-size: 0.95rem; }
+    .item-content p { margin: 5px 0; } /* 自動挿入される段落の隙間を小さく */
     .item-content img, .accordion-content img { max-width: 100%; height: auto; border-radius: 8px; display: block; margin: 10px auto; }
 
-    details.inline-accordion { border: 1px solid #FFCC80; border-radius: 4px; margin: 15px 0; background: #fff; }
+    /* --- 本文中のアコーディオンデザイン（ここを調整しました） --- */
+    details.inline-accordion { 
+      border: 1px solid #FFCC80; 
+      border-radius: 4px; 
+      margin: 5px 0; /* 15pxから5pxに減らして間隔を詰めました */
+      background: #fff; 
+    }
     details.inline-accordion summary { padding: 10px 15px; font-weight: bold; cursor: pointer; background: #FFF3E0; border-radius: 4px; outline: none; list-style-position: inside; color: #D35400; }
     details.inline-accordion summary:hover { background: #FFE0B2; }
     details.inline-accordion .accordion-content { padding: 15px; border-top: 1px solid #FFCC80; }
@@ -143,12 +152,11 @@
             document.getElementById('main-nav').innerHTML = data.navHtml;
             document.getElementById('main-content').innerHTML = data.mainHtml;
 
-            // ★追加：保存時の状態に関わらず、必ず一番左のメニュー（トップ）を初期表示する
+            // 保存時の状態に関わらず、必ず一番左のメニュー（トップ）を初期表示する
             const firstNavBtn = document.querySelector('.nav-btn');
             if (firstNavBtn) {
               showSection(firstNavBtn.getAttribute('data-section-id'));
             }
-
           } else {
             forceStart();
           }
@@ -202,7 +210,6 @@
       });
     }
 
-    // --- エディタ・モード切替等のロジック ---
     const icons = Quill.import('ui/icons');
     icons['accordion'] = '<svg viewBox="0 0 18 18"><polygon class="ql-fill" points="4,6 14,6 9,13"></polygon></svg>';
     const quill = new Quill('#editor', {
