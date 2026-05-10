@@ -24,16 +24,18 @@
     
     /* コンテンツ内のテキスト余白を調整 */
     .item-content { font-size: 0.95rem; }
-    .item-content p { margin: 5px 0; } /* 自動挿入される段落の隙間を小さく */
+    .item-content p { margin: 5px 0; } 
     .item-content img, .accordion-content img { max-width: 100%; height: auto; border-radius: 8px; display: block; margin: 10px auto; }
 
-    /* --- 本文中のアコーディオンデザイン（ここを調整しました） --- */
-    details.inline-accordion { 
-      border: 1px solid #FFCC80; 
-      border-radius: 4px; 
-      margin: 5px 0; /* 15pxから5pxに減らして間隔を詰めました */
-      background: #fff; 
-    }
+    /* ★復活：項目全体のアコーディオン設定 */
+    .sub-item.accordion .item-title { cursor: pointer; padding-right: 30px; position: relative; }
+    .sub-item.accordion .item-title::after { content: '▼'; position: absolute; right: 5px; top: 50%; transform: translateY(-50%); font-size: 0.9rem; color: #D35400; transition: transform 0.3s; }
+    .sub-item.accordion.open .item-title::after { transform: translateY(-50%) rotate(180deg); }
+    .sub-item.accordion .item-content { display: none; }
+    .sub-item.accordion.open .item-content { display: block; margin-top: 10px; }
+
+    /* --- 本文中のアコーディオンデザイン --- */
+    details.inline-accordion { border: 1px solid #FFCC80; border-radius: 4px; margin: 5px 0; background: #fff; }
     details.inline-accordion summary { padding: 10px 15px; font-weight: bold; cursor: pointer; background: #FFF3E0; border-radius: 4px; outline: none; list-style-position: inside; color: #D35400; }
     details.inline-accordion summary:hover { background: #FFE0B2; }
     details.inline-accordion .accordion-content { padding: 15px; border-top: 1px solid #FFCC80; }
@@ -111,14 +113,22 @@
     <div class="modal-content">
       <span class="close-modal" onclick="closeModal('contentModal')">&times;</span>
       <h3>項目の編集</h3>
+      
       <div class="modal-input-group">
         <label>項目の見出し（タイトル）</label>
         <input type="text" id="item-title-input" placeholder="例：プロフィール、TikTok など">
       </div>
+
+      <div class="modal-input-group" style="display: flex; align-items: center; gap: 8px; margin-top: -5px; margin-bottom: 15px;">
+        <input type="checkbox" id="item-accordion-checkbox" style="width: 20px; height: 20px; cursor: pointer;">
+        <label for="item-accordion-checkbox" style="margin: 0; font-weight: normal; cursor: pointer; padding-top: 2px;">この項目全体をアコーディオン(開閉式)にする</label>
+      </div>
+
       <div class="modal-input-group">
         <label>内容</label>
         <div id="editor" style="height: 250px; border: 1px solid #ccc; background: #fff;"></div>
       </div>
+      
       <button class="save-btn" onclick="saveContent()">保存する</button>
     </div>
   </div>
@@ -257,6 +267,14 @@
 
     function closeModal(modalId) { document.getElementById(modalId).classList.remove('active'); }
 
+    // ★追加：項目全体のアコーディオン開閉ロジック
+    function toggleAccordion(itemId) {
+      const item = document.getElementById(itemId);
+      if(item && item.classList.contains('accordion')) {
+        item.classList.toggle('open');
+      }
+    }
+
     function parseAccordionToHTML(rawHtml) {
       const regex = /(?:<p>)?【アコーディオン:(.*?)】(?:<\/p>)?([\s\S]*?)(?:<p>)?【\/アコーディオン】(?:<\/p>)?/g;
       return rawHtml.replace(regex, function(match, title, content) {
@@ -273,8 +291,14 @@
       const itemEl = document.getElementById(itemId);
       const title = itemEl.querySelector('.item-title').innerText;
       const rawContent = decodeURIComponent(itemEl.getAttribute('data-raw-content') || '');
-      document.getElementById('item-title-input').value = title;
+      
+      // アコーディオン設定の状態を取得してチェックボックスに反映
+      const isCardAccordion = itemEl.classList.contains('accordion');
+      
+      document.getElementById('item-title-input').value = title.replace('▼', '').trim(); // ▼マークを除いて表示
       quill.root.innerHTML = rawContent;
+      document.getElementById('item-accordion-checkbox').checked = isCardAccordion;
+      
       document.getElementById('contentModal').classList.add('active');
     }
 
@@ -283,6 +307,7 @@
       currentEditingSectionId = sectionId;
       document.getElementById('item-title-input').value = '';
       quill.root.innerHTML = '<p></p>';
+      document.getElementById('item-accordion-checkbox').checked = false; // 初期状態はOFF
       document.getElementById('contentModal').classList.add('active');
     }
 
@@ -294,16 +319,42 @@
       const title = document.getElementById('item-title-input').value || 'タイトルなし';
       const rawContent = quill.root.innerHTML;
       const displayContent = parseAccordionToHTML(rawContent);
+      const isCardAccordion = document.getElementById('item-accordion-checkbox').checked;
       
       if (currentEditingItemId) {
         const itemEl = document.getElementById(currentEditingItemId);
-        itemEl.querySelector('.item-title').innerText = title;
+        const titleEl = itemEl.querySelector('.item-title');
+        titleEl.innerText = title;
         itemEl.querySelector('.item-content').innerHTML = displayContent;
         itemEl.setAttribute('data-raw-content', encodeURIComponent(rawContent));
+
+        // ★追加：アコーディオンの適用/解除
+        if (isCardAccordion) {
+          itemEl.classList.add('accordion');
+          titleEl.setAttribute('onclick', `toggleAccordion('${currentEditingItemId}')`);
+        } else {
+          itemEl.classList.remove('accordion', 'open');
+          titleEl.removeAttribute('onclick');
+        }
+
       } else if (currentEditingSectionId) {
         const newItemId = 'item-' + Date.now();
         const sectionContainer = document.querySelector(`#${currentEditingSectionId} .sub-items-container`);
-        const html = `<div class="sub-item" id="${newItemId}" data-raw-content="${encodeURIComponent(rawContent)}"><div class="item-actions"><button onclick="editItem('${newItemId}')">✏️ 編集</button><button class="delete-btn" onclick="deleteItem('${newItemId}')">🗑️ 削除</button></div><h2 class="item-title">${title}</h2><div class="item-content">${displayContent}</div></div>`;
+        
+        // ★追加：新規作成時のアコーディオンクラスとonclick属性
+        const accordionClass = isCardAccordion ? 'accordion' : '';
+        const onclickAttr = isCardAccordion ? `onclick="toggleAccordion('${newItemId}')"` : '';
+
+        const html = `
+          <div class="sub-item ${accordionClass}" id="${newItemId}" data-raw-content="${encodeURIComponent(rawContent)}">
+            <div class="item-actions">
+              <button onclick="editItem('${newItemId}')">✏️ 編集</button>
+              <button class="delete-btn" onclick="deleteItem('${newItemId}')">🗑️ 削除</button>
+            </div>
+            <h2 class="item-title" ${onclickAttr}>${title}</h2>
+            <div class="item-content">${displayContent}</div>
+          </div>
+        `;
         sectionContainer.insertAdjacentHTML('beforeend', html);
       }
       closeModal('contentModal');
